@@ -1,0 +1,31 @@
+{
+  "generator-sap-partner-eng": {
+    "package_version": "0.2.19",
+    "project_name": "mtxsm",
+    "app_name": "mtxsm",
+    "app_desc": "MTXSM",
+    "router_name": "mtxsm-app",
+    "domain_name": "cfapps.us10.hana.ondemand.com",
+    "router_path": "app",
+    "database_path": "db",
+    "services_path": "srv",
+    "uaa_res_name": "mtxsm-uaa",
+    "uaa_svc_name": "MTXSM_UAA",
+    "database_name": "mtxsm-hdb",
+    "db_schema_name": "",
+    "hdi_res_name": "mtxsm-hdi",
+    "hdi_svc_name": "MTXSM_HDI",
+    "services_type": "nodejs",
+    "java_package": "my.company",
+    "services_name": "mtxsm-srv",
+    "services_api": "mtxsm_svc_api",
+    "services_be": "mtxsm_svc_be",
+    "services_route": "catalog",
+    "tests_path": "integration-tests",
+    "multitenant_enabled": true,
+    "reg_res_name": "mtxsm-reg",
+    "reg_svc_name": "MTXSM_REG",
+    "mgd_res_name": "mtxsm-smc",
+    "mgd_svc_name": "MTXSM_SMC"
+  }
+}

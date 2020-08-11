@@ -1,0 +1,204 @@
+## Generated mta.yaml based on yo sap-partner-eng version 0.2.19
+## appName = mtxsm
+## language=nodejs; multiTenant=false
+## approuter=mtxsm-app
+_schema-version: '3.1'
+ID: mtxsm
+version: 0.0.1
+description: Cloud Application Programming(CAP) with Multitenancy using Service Manger Tenant Data Separation
+parameters:
+   enable-parallel-deployments: true
+  
+  
+build-parameters:
+  before-all:
+   - builder: custom
+     commands:
+      - npm install
+      - npx -p @sap/cds-dk cds build
+
+modules:
+
+### New Modules Here ###
+
+# cf push mtxsm-hdb -p db -k 512M -m 512M
+ - name: mtxsm-hdb
+   type: hdb
+   path: db
+   build-parameters:
+      # Don't package the dependencies if you're running into EINTEGRITY issues
+      ignore: ["default-env.json","package-lock.json", "node_modules/"]
+      # Suppress the calling of npm install by listing no commands
+      builder: custom
+      commands: []
+   parameters:
+      memory: 512M
+      disk-quota: 512M
+   requires:
+    - name: mtxsm-hdi
+
+# cf push mtxsm-srv -p srv -n ${org}-${space}-mtxsm-srv -d cfapps.us10.hana.ondemand.com -k 1024M -m 512M
+ - name: mtxsm-srv
+   type: nodejs
+   build-parameters:
+      # Don't package the dependencies if you're running into EINTEGRITY issues
+      ignore: ["default-env.json","package-lock.json", "node_modules/"]
+      # Suppress the calling of npm install by listing no commands
+      builder: custom
+      commands: []
+   path: srv
+   properties:
+      LOG_LEVEL: debug
+      EXIT: 1  # required by deploy.js task to terminate
+      SAP_JWT_TRUST_ACL: [{"clientid":"*","identityzone":"sap-provisioning"}]  # Trust between server and SaaS Manager
+      NODE_DEBUG: 'instance-manager'
+   parameters:
+      memory: 512M
+      disk-quota: 1024M
+      #host: ${org}-${space}-mtxsm-srv
+      #domain: cfapps.us10.hana.ondemand.com
+   provides:
+    - name: mtxsm_svc_api
+      properties:
+         url: ${default-url}
+   requires:
+    - name: mtxsm-hdi
+    - name: mtxsm-uaa
+    - name: mtxsm-reg
+    - name: mtxsm-smc
+
+
+# cf push mtxsm-app -p app -n mtxsm-app -d cfapps.us10.hana.ondemand.com -k 256M -m 256M
+ - name: mtxsm-app
+   type: html5
+   path: app
+   build-parameters:
+      # Don't package the dependencies if you're running into EINTEGRITY issues
+      ignore: ["default-env.json","package-lock.json", "node_modules/"]
+      # Suppress the calling of npm install by listing no commands
+      builder: custom
+      commands: []
+   parameters:
+      #host: ${org}-${space}-mtxsm-app
+      #domain: cfapps.us10.hana.ondemand.com
+      #routes:
+      #  - route: mtxsm-app-${space}-${app-name}.${default-domain}
+      disk-quota: 256M
+      memory: 256M
+   provides:
+    - name: Router_api
+      properties:
+         url: ${default-url}
+         application: ${app-name}
+# CDS-MTX
+   properties:
+      TENANT_HOST_PATTERN: '^(.*)-${space}-${app-name}.cfapps.us10.hana.ondemand.com'
+   requires:
+   # cf bind-service mtxsm-app MTXSM_UAA
+    - name: mtxsm-uaa
+   ### New Destinations Here ###
+    - name: mtxsm_svc_api
+      group: destinations
+      properties:
+         name: mtxsm_svc_be
+         url: ~{url}
+         forwardAuthToken: true
+
+resources:
+
+# cf create-service xsuaa application MTXSM_UAA -c ./cds-security.json
+ - name: mtxsm-uaa
+   type: org.cloudfoundry.managed-service
+   requires:
+    - name: Router_api
+   properties:
+      XSAPPNAME: ${xsuaa-app}
+   parameters:
+      # Re-run the following command after changing any @(requires: []) definitions in srv/*.cds
+      # Run this from the root of the project and uncomment the path:
+      # cds compile srv/ --to xsuaa,json > cds-security.json
+      #path: ./cds-security.json
+      # The combination of path: and config.scopes: Doesn't seem work.  Use one or the other.
+      # cds compile srv/ --to xsuaa,yaml and make sure the config: below matches
+      #path: ./cds-security.json
+      #path: ./xs-security.json
+      service: xsuaa
+      service-plan: application
+      service-name: MTXSM_UAA
+      xsuaa-app: ${space}-~{Router_api/application}
+      # Define within config what used to be in the xs-security.json file.  path: now pulls in cds scopes/role templates
+      # Convert with https://www.json2yaml.com/
+      # https://github.wdf.sap.corp/pages/cap/guides/authorization#role-assignments-with-xsuaa
+      config:
+         xsappname: ${xsuaa-app}
+         ### tenant-mode
+         tenant-mode: shared
+         description: Security profile of the mtxsm application
+         scopes:
+          - name: "$XSAPPNAME.Callback"
+            description: With this scope set, the callbacks for tenant onboarding, offboarding and getDependencies can be called.
+            grant-as-authority-to-apps: 
+             - "$XSAPPNAME(application,sap-provisioning,tenant-onboarding)"
+          - name: "$XSAPPNAME.Administrator"
+            description: Administrate the application
+          - name: "$XSAPPNAME.User"
+            description: Use the application
+         role-templates:
+          - name: Administrator
+            description: Administrator
+            scope-references:
+             - "$XSAPPNAME.Administrator"
+          - name: User
+            description: User
+            scope-references:
+             - "$XSAPPNAME.User"
+         oauth2-configuration:
+            redirect-uris: 
+             - "http*://*.cfapps.us10.hana.ondemand.com/**"
+
+### New Resources Here ###
+
+# cf create-service hana hdi-shared MTXSM_HDI -c '{"config":{"schema":""}}'
+ - name: mtxsm-hdi
+   type: com.sap.xs.hdi-container
+   parameters:
+      service-name: MTXSM_HDI
+      config:
+         schema: 
+
+# CAP-MTX Managed HANA (Internal Service Manager)
+ - name: mtxsm-smc
+   type: org.cloudfoundry.managed-service
+   requires:
+    - name: mtxsm-uaa
+   parameters:
+      service: service-manager
+      service-plan: container
+      service-name: MTXSM_SMC
+      polling_timeout_seconds: 240
+
+# Multitenant Registration(using CAP-MTX style url)
+# Manually add route after tenant subscription
+# cf map-route mtxsm-app cfapps.us10.hana.ondemand.com --hostname xxxmtxsmsbi-dev-mtxsm-app
+ - name: mtxsm-reg
+   type: org.cloudfoundry.managed-service
+   requires:
+    - name: mtxsm-uaa
+   parameters:
+      service: saas-registry
+      service-plan: application
+      service-name: MTXSM_REG
+      config:
+         xsappname: ~{mtxsm-uaa/XSAPPNAME}
+         appName: mtxsm
+         displayName: mtxsm
+         description: 'mtxsm Multitenant App'
+         category: 'mtxsm Category'
+         appUrls:
+            onSubscription: https://${org}-${space}-mtxsm-srv.cfapps.us10.hana.ondemand.com/mtx/v1/provisioning/tenant/{tenantId}
+            onSubscriptionAsync: false
+            onUnSubscriptionAsync: false
+            #callbackTimeoutMillis: 300000
+
+
+
