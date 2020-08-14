@@ -269,14 +269,6 @@ module.exports = (service) => {
 
     return tenantURL;
 
-    // if (appuri === ' ') {
-    //   console.log('[INFO ][ON_UPDATE_TENANT] XXX_Application URI for subscriptions is not configured.');
-    //   return '';
-    // } else {
-    //   let url = 'https://' + req.data.subscribedSubdomain + appuri;
-    //   console.log('[INFO ][ON_UPDATE_TENANT] ' + 'XXX_Application URL is ' + url);
-    //   return url;
-    // }
   });
 
   service.before('DELETE', 'tenant', async (req, next) => {
@@ -284,6 +276,7 @@ module.exports = (service) => {
     console.log('[INFO ][ON_DELETE_TENANT] XXX_Before Unsubscription for ' + req.data.subscribedTenantId + '.');
 
     //console.log('[INFO ][ON_DELETE_TENANT] XXX_Starting Unsubscription for ' + req.body.subscribedSubdomain + '.');
+    // Do this on DELETE, not before DELETE
     //const res = await next();          // IMPORTANT: call default implementation which is doing the HDI container creation
     let c = cds.env.for('app');        // use cds config framework to read app specific config node
     //let appuri = typeof c.urlpart === "undefined" ? ' ' : c.urlpart;
@@ -314,14 +307,6 @@ module.exports = (service) => {
           return '';
       });
 
-    // if (appuri === ' ') {
-    //   console.log('[INFO ][ON_DELETE_TENANT] XXX_Application URI for subscriptions is not configured.');
-    //   return '';
-    // } else {
-    //   let url = 'https://' + req.data.subscribedSubdomain + appuri;
-    //   console.log('[INFO ][ON_DELETE_TENANT] ' + 'XXX_Application URL is ' + url);
-    //   return url;
-    // }
   });
 
   service.on('DELETE', 'tenant', async (req, next) => {
@@ -340,35 +325,6 @@ module.exports = (service) => {
 
     return tenantID;
 
-    // connectAPI().then(
-    //   function (res1) {
-    //       deleteRoute(tenantID, res1).then(
-    //           async function (res2) {
-    //               console.log('Unsubscribe: ', + inspect(res2,false,1));
-    //               //res.status(200).send('');
-    //               await next();
-    //               return tenantHost;
-    //           },
-    //           function (err) {
-    //               console.log(err.stack);
-    //               //res.status(500).send(err.message);
-    //               return '';
-    //           });
-    //   },
-    //   function (err) {
-    //       console.log(err.stack);
-    //       //res.status(500).send(err.message);
-    //       return '';
-    //   });
-
-    // if (appuri === ' ') {
-    //   console.log('[INFO ][ON_DELETE_TENANT] XXX_Application URI for subscriptions is not configured.');
-    //   return '';
-    // } else {
-    //   let url = 'https://' + req.data.subscribedSubdomain + appuri;
-    //   console.log('[INFO ][ON_DELETE_TENANT] ' + 'XXX_Application URL is ' + url);
-    //   return url;
-    // }
   });
 }
 
