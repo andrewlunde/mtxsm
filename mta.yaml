@@ -52,6 +52,11 @@ modules:
       EXIT: 1  # required by deploy.js task to terminate
       SAP_JWT_TRUST_ACL: [{"clientid":"*","identityzone":"sap-provisioning"}]  # Trust between server and SaaS Manager
       NODE_DEBUG: 'instance-manager'
+      # cf set-env mtxsm-srv CF_API_USER 'andrew.lunde@sap.com'
+      # cf set-env mtxsm-srv CF_API_PW 'xxxxxx'
+      # cf restage mtxsm-srv
+      CF_API_USER: andrew.lunde@sap.com
+      CF_API_PW: xxxxxx
    parameters:
       memory: 512M
       disk-quota: 1024M

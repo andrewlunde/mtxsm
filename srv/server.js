@@ -3,6 +3,10 @@ const app = require("express")();
 const cds = require("@sap/cds");
 //const mtx = require("@sap/cds-mtx");
 
+const axios = require('axios');
+const bodyParser = require('body-parser');
+
+
 var cds_mtx_way = true;
 
 // OLD WAY BEGIN
@@ -13,6 +17,35 @@ var myLogger = function (req, res, next) {
   console.log("XXX_==== body:" + JSON.stringify(req.body) + "====");
   next();
 }
+
+async function mockSubscribe() {
+  var result = "";
+  //const appurl = process.env.MTXSM_APP_URL;
+  const appurl = 'http://localhost:8001/mtx/v1/provisioning/tenant/123';
+
+  var config = {
+    method: 'post',
+    url: appurl,
+    // Hardcoded for localized testing against CF
+    headers: {         
+      'Accept': '*/*',
+      'content-type': 'application/json'
+    }
+  };
+
+  var response = {};
+  var data = {};
+  try {
+    response = await axios(config);
+    result += "OK now stuff from the axios get.<br />";
+    result += "title: " + response.data.title + "<br />";
+  } catch (error) {
+    result += "error: " + error + ".<br />";
+  }
+
+  return result;
+}
+
 
 if (!cds_mtx_way) {
   const bodyParser = require('body-parser');
@@ -81,8 +114,28 @@ if (!cds_mtx_way) {
 
   // NEW WAY BEGIN
   app.use(myLogger);
+  
+  const cfenv = require('cfenv');
+  const appEnv = cfenv.getAppEnv();
+  
+  const xsenv = require('@sap/xsenv');
+  const services = xsenv.getServices({
+    uaa: { tag: 'xsuaa' },
+    registry: { tag: 'SaaS' }
+  });
+  
+  const xssec = require('@sap/xssec');
+  const passport = require('passport');
+  passport.use('JWT', new xssec.JWTStrategy(services.uaa));
+  app.use(passport.initialize());
+  app.use(passport.authenticate('JWT', {
+      session: false
+  }));
+
+  app.use(bodyParser.json());
 
   app.get("/test/*", function(req, res) {
+
     var responseStr = "";
     responseStr +=
       "<!DOCTYPE HTML><html><head><title>CAP-MTX</title></head><body><h1>CAP-MTX</h1><h2>WARNING!</h2><br />";
@@ -91,11 +144,25 @@ if (!cds_mtx_way) {
     let c = cds.env.for('app');        // use cds config framework to read app specific config node
     let appuri = typeof c.urlpart === "undefined" ? ' ' : c.urlpart;
   
-    responseStr += "appuri: " + c.urlpart + "<br />";
+    responseStr += "POST: " + "FINISHED" + ".<br />";
+  
+    //responseStr += "appuri: " + c.urlpart + "<br />";
 
-    responseStr += "</body></html>";
-    console.log("XXX_Testing... " + c.urlpart + "");
-    res.status(200).send(responseStr);
+    mockSubscribe().then(
+      function (res2) {
+        responseStr += "</body></html>";
+        console.log("XXX_Testing... " + 'OK' + "");
+        responseStr += "POST: " + "OK" + ".<br />";
+        responseStr += "RES: " + res2 + ".<br />";
+        res.status(200).send(responseStr);
+          },
+      function (err) {
+        responseStr += "</body></html>";
+        console.log("XXX_Testing... " + 'BAD' + "");
+        responseStr += "POST: " + "BAD" + ".<br />";
+        responseStr += "ERR: " + err + ".<br />";
+        res.status(200).send(responseStr);
+      });
   });
 
 
